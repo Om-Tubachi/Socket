@@ -1,0 +1,41 @@
+
+export const GameEvent = {
+    JOIN_GAME: "join-game"
+}
+
+export const RoomState = {
+    LOBBY: 'lobby',
+    GAME_STARTED: 'game-started',
+    IN_PROGRESS: 'in-progress',
+    GAME_END: 'game-end'
+}
+
+export const DEFAULT_SETTINGS = {
+    players: 5,
+    drawTime: 60,
+    rounds: 2,
+    onlyCustomWords: false,
+    customWords: [],
+    wordCount: 3,
+    hints: 0,
+    // language: Languages.en,
+}
+
+
+export const DEFAULT_ROOM = {
+    roomId: "",
+    creator: null,
+    players: [],
+    gameState: {
+        currentRound: 0,
+        drawingData: [],
+        guessedWords: [],
+        word: "",
+        currentPlayer: 0,
+        roomState: RoomState.LOBBY,
+        timerStartedAt: new Date(),
+        hintLetters: [],
+    },
+    isPrivate: false,
+    settings: DEFAULT_SETTINGS
+}
