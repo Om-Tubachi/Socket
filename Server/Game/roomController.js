@@ -1,47 +1,120 @@
-import client from "../Utils/redis";
-import { asyncHandler } from "../Utils/asyncHandler";
-import { CustomResponse } from "../Response/CustomResponse";
-import { CustomError } from '../Response/CustomError'
-import { RoomState } from "../Constants";
+import client from "../Utils/redis.js";
+import { asyncHandler } from "../Utils/asyncHandler.js";
+import { RoomState } from "../Constants.js";
+import { ServerEvent } from "../Constants.js";
+import {
+    createNewRoom,
+    generateRoomId,
+    getPublicRoom,
+    getRedisRoom,
+    setRedisRoom,
+    getRoomFromSocket
+} from '../Utils/redis.js'
+
+
+
 
 
 export const handlePlayerJoin = asyncHandler(
-    async (roomId, player) => {
+    async (roomId, player, socket, io) => {
+
         try {
-            if (roomId === '') {
-                // random room join case
-
-                let id = await getEmptyRoom()
-                if (!id) {
-                    id = await createEmptyRoom()
-                }
-                if (!id) throw new CustomError(409, "Failed to join a random room")
-                roomId = id
+            const id = player.id
+            let room = await getRedisRoom(roomId)
+            let players = room.players
+            if (players.length === room.settings.players) {
+                socket.emit(ServerEvent.RESPONSE, {
+                    message: 'Room limit reached.'
+                })
+                console.log('Max limit of room reached')
+                return
             }
-
-            const room = await client.get(roomId)
-            if (!room) throw new Error('Failed to fetch room from cache or room id is invalid')
-            // players full?
-            // room state: if ended -> return 'Game ended, join another room'
-
-            const players = room.players, maxPlayers = room?.settings?.players, roomState = room?.gameState?.roomState
-
-            if (players && players.length === maxPlayers) {
-                throw new CustomResponse(500, {}, "Room is full")
-            }
-            if (roomState === RoomState.GAME_END) {
-                throw new CustomResponse(500, {}, "Game has ended")
-            }
-
-            players.push(player.id)
+            players.push(player)
             room.players = players
-            await client.set(roomId, room)
+            await setRedisRoom(roomId, room, socket)
+            console.log(roomId + " Hanfled?");
+            console.log('in controller:');
+            const updated = await getRedisRoom(roomId)
+            console.log(updated);
 
+            console.log('Emitting event:', ServerEvent.JOINED)
+            socket.join(roomId)
+            io.to(roomId).emit(ServerEvent.JOINED, {
+                room: updated,
+                data: {
+                    message: 'joined room',
+                    player
+                }
+            })
             return
         } catch (error) {
-            throw new CustomError(404, "Something went wrong", error)
+            socket.emit(ServerEvent.ERROR, {
+                message: 'Error in joining game.'
+            })
         }
 
-
     }
-) 
+)
+
+export const handleNewPlayer = asyncHandler(
+    async (roomId, player, socket) => {
+        // if (!player)
+        //     throw new CustomResponse(409, {}, "Player info is missing")
+        const playerId = player.id
+
+        if (roomId === null && playerId) {
+            roomId = await getPublicRoom()
+            if (roomId === null) {
+                roomId = generateRoomId()
+                await createNewRoom(roomId, false, null)
+                return roomId
+            }
+
+            return roomId
+        }
+
+        let room = await getRedisRoom(roomId)
+        if (!room) {
+            // admin is making this room
+            await createNewRoom(roomId, true, socket.id)
+            return roomId
+        }
+        return roomId
+    }
+)
+
+export const handleDisconnect = async (socket, io) => {
+    // MANY DIFFERENT CASES WILL COME HERE, WHERE THE PNE WHO DISCONNECTED COUD BE HOST,
+    // CURRENT PLAYER OR A PARTICIPANT
+
+    let room = await getRoomFromSocket(socket.id)
+    if (room === null) {
+        socket.emit(ServerEvent.ERROR, {
+            message: 'No such room found, invalid room id'
+        })
+        console.log('Player was not dfound in any rooms');
+
+        return
+    }
+    const playerLeft = room?.players?.find(({ id }) => id === socket.id)
+    room.players = room?.players.filter(({ id }) => id !== socket.id)
+
+    // Host left:
+    if (playerLeft === room.creator) {
+        // if(room.players.length === 0) {
+        //     // end game
+        // }
+        if (room.players.length > 0) {
+            // Transfer host to first remaining player
+            room.creator = room.players[0].id
+            console.log(`Host left. New host: ${room.players[0].username}`)
+        }
+    }
+
+    await setRedisRoom(room.roomId, room)
+    io.to(room.roomId).emit(ServerEvent.LEFT, {
+        message: 'player left',
+        playerLeft,
+        newHost: playerLeft.id === room.creator ? room.players[0] : null
+    })
+}

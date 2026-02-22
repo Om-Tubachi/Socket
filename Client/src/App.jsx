@@ -4,10 +4,13 @@ import { useState, useEffect } from 'react'
 import { socket } from './socket';
 import { ConnectionState } from './Components/ConnectionState';
 import { ConnectionManager } from './Components/ConnectionManager';
+import { useRoom } from './Context/roomContext';
+import GameRoom from './Components/GameRoom';
+import GameForm from './Components/GameForm';
 
 function App() {
   const [isConnected, setIsConnected] = useState(socket.connected);
-
+  const { room,roomId } = useRoom()
 
   useEffect(() => {
     function onConnect() {
@@ -32,14 +35,14 @@ function App() {
     <>
       <div className="min-h-screen bg-gray-400 p-6">
         {/* Left sidebar */}
-        <div className="fixed top-6 left-6 flex flex-col gap-4">
+        <div className="fixed top-1 left-6 flex flex-row gap-4">
           <ConnectionState isConnected={isConnected} />
           <ConnectionManager />
         </div>
 
         {/* Center content - future components go here */}
         <div className="flex justify-center">
-
+          {roomId ? <GameRoom /> : <GameForm />}
         </div>
       </div>
     </>

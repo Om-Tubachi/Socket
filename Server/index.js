@@ -7,6 +7,9 @@ import { createServer } from 'node:http';
 // client.on('error', (err) => console.log('Redis error:', err))
 
 await client.connect()
+await client.flushAll()
+console.log('Cleared');
+
 const app = express()
 app.use(cors({
     origin: "*",

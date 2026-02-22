@@ -1,0 +1,84 @@
+/* eslint-disable no-unused-vars */
+import { createContext, useContext, useState, useEffect } from 'react'
+import { socket } from '../socket.js'
+import { ServerEvent, ClientEvent, DEFAULT_ROOM } from '../Constants/Constants.js'
+
+const RoomContext = createContext()
+
+export const RoomProvider = ({ children }) => {
+    const [room, setRoom] = useState(DEFAULT_ROOM)
+    const [roomId, setRoomId] = useState('')
+    useEffect(() => {
+        console.log(room)
+        socket.on(ServerEvent.JOINED, ({ room: receivedRoom, data }) => {
+            console.log('Listening for event:', ServerEvent.JOINED)
+            console.log('Received room:', receivedRoom)
+            setRoomId(receivedRoom.roomId)
+            setRoom(receivedRoom)
+        })
+
+        socket.on(ServerEvent.LEFT, ({ playerLeft, newHost }) => {
+            setRoom(prev => {
+                const updatedRoom = {
+                    ...prev,
+                    players: prev.players.filter(p => p.id !== playerLeft.id)
+                }
+                if (newHost) {
+                    updatedRoom.creator = newHost.id
+                    if (newHost.id === socket.id) {
+                        alert(`${playerLeft.username} left. You are now the host!`)
+                    } else {
+                        alert(`${playerLeft.username} left. ${newHost.username} is now the host.`)
+                    }
+                } else {
+                    alert(`${playerLeft.username} left the room`)
+                }
+
+                return updatedRoom
+            })
+        })
+        socket.on(ServerEvent.ERROR, ({ message }) => {
+            alert(message)
+        })
+
+        return () => {
+            socket.off(ServerEvent.JOINED)
+            socket.off(ServerEvent.ERROR)
+            socket.off(ServerEvent.LEFT)
+        }
+    }, [])
+
+    const handlePlayerJoin = (roomId, player) => {
+        console.log(roomId)
+        console.log(player)
+        socket.emit(ClientEvent.JOIN_GAME, { roomId, player })
+    }
+
+    const generateRoomId = () => {
+        return Math.random().toString(36).substring(2, 8).toUpperCase()
+    }
+    const customRoom = async (player) => {
+        // console.log(player)
+        const roomId = generateRoomId()
+        return handlePlayerJoin(roomId, player)
+    }
+
+
+    return (
+        <RoomContext.Provider value={{
+            room,
+            roomId,
+            handlePlayerJoin,
+            customRoom,
+        }}>
+            {children}
+        </RoomContext.Provider>
+    )
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export const useRoom = () => {
+    const context = useContext(RoomContext)
+    if (!context) throw new Error('useRoom must be used within RoomProvider')
+    return context
+}

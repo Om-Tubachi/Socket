@@ -1,19 +1,36 @@
 import { Server, Socket } from "socket.io"
-import { GameEvent } from "../Constants"
-import client from "../Utils/redis"
-import { asyncHandler } from "../Utils/asyncHandler"
+import { ClientEvent, ServerEvent } from "../Constants.js"
 import {
-    handlePlayerJoin
+    getRoomFromSocket,
+    setRedisRoom
+} from "../Utils/redis.js"
+import { asyncHandler } from "../Utils/asyncHandler.js"
+import {
+    handlePlayerJoin,
+    handleNewPlayer,
+    handleDisconnect
 } from '../Game/roomController.js'
+
+
 export const setupSocket = asyncHandler(
     async (io) => {
         io.on('connect', async (socket) => {
-            // console.log('User connected, ' , socket.id)
-            socket.on(GameEvent.JOIN_GAME, async ({ roomId, player }, ack) => {
-                await handlePlayerJoin(roomId, player)
-                
+            console.log('User connected, ', socket.id)
+
+            socket.on(ClientEvent.DISCONNECT, async () => {
+                await handleDisconnect(socket, io)
 
             })
+
+            socket.on(ClientEvent.JOIN_GAME, async ({ roomId, player }) => {
+                console.log(player)
+                roomId = await handleNewPlayer(roomId, player, socket)
+                await handlePlayerJoin(roomId, player, socket, io)
+                // ack(true)
+            })
+
+
+
         })
     }
 )

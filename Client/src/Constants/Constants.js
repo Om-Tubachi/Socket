@@ -1,6 +1,4 @@
 /**
- * @readonly 
- * @constant ServerEvent
  * @description Server sent events
  */
 export const ServerEvent = {
@@ -18,8 +16,7 @@ export const ServerEvent = {
 
 export const ClientEvent = {
     JOIN_GAME: "join-game",
-    GET_ROOM: 'get-room',
-    DISCONNECT:'disconnect'
+    GET_ROOM: 'get-room'
 }
 
 
@@ -57,7 +54,7 @@ export const DEFAULT_ROOM = {
         word: "",
         currentPlayer: 0,
         roomState: RoomState.LOBBY,
-        timerStartedAt: null,
+        timerStartedAt: new Date(),
         hintLetters: [],
     },
     isPrivate: false,
