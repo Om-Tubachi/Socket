@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable no-unused-vars */
 import { createContext, useContext, useState, useEffect } from 'react'
 import { socket } from '../socket.js'
@@ -11,10 +12,13 @@ export const RoomProvider = ({ children }) => {
     useEffect(() => {
         console.log(room)
         socket.on(ServerEvent.JOINED, ({ room: receivedRoom, data }) => {
-            console.log('Listening for event:', ServerEvent.JOINED)
-            console.log('Received room:', receivedRoom)
+            if (!receivedRoom) return
             setRoomId(receivedRoom.roomId)
             setRoom(receivedRoom)
+        })
+
+        socket.on(ServerEvent.ERROR, ({ message }) => {
+            alert(message)
         })
 
         socket.on(ServerEvent.LEFT, ({ playerLeft, newHost }) => {
@@ -37,32 +41,45 @@ export const RoomProvider = ({ children }) => {
                 return updatedRoom
             })
         })
-        socket.on(ServerEvent.ERROR, ({ message }) => {
-            alert(message)
+
+        socket.on(ClientEvent.SETTINGS_UPDATE, ({ room: receivedRoom }) => {
+            if (!receivedRoom?.settings) alert('Empty settings, not changing the settings ')
+            else setRoom(receivedRoom)
         })
 
         return () => {
             socket.off(ServerEvent.JOINED)
             socket.off(ServerEvent.ERROR)
             socket.off(ServerEvent.LEFT)
+            socket.off(ClientEvent.SETTINGS_UPDATE)
         }
     }, [])
 
     const handlePlayerJoin = (roomId, player) => {
-        console.log(roomId)
-        console.log(player)
         socket.emit(ClientEvent.JOIN_GAME, { roomId, player })
+    }
+
+    const handleSettingsChange = (roomId, newSettings) => {
+        // plan toasts tomorrow instead of returns
+        if (!newSettings)
+            console.log('Invalid object recieved for settings, returned');
+        socket.emit(ClientEvent.SETTINGS_UPDATE, {
+            roomId,
+            newSettings
+        })
+
     }
 
     const generateRoomId = () => {
         return Math.random().toString(36).substring(2, 8).toUpperCase()
     }
+
     const customRoom = async (player) => {
         // console.log(player)
         const roomId = generateRoomId()
         return handlePlayerJoin(roomId, player)
     }
-
+console.log(room);
 
     return (
         <RoomContext.Provider value={{
@@ -70,6 +87,7 @@ export const RoomProvider = ({ children }) => {
             roomId,
             handlePlayerJoin,
             customRoom,
+            handleSettingsChange
         }}>
             {children}
         </RoomContext.Provider>

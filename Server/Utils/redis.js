@@ -2,7 +2,7 @@ import { createClient } from 'redis'
 import { DEFAULT_ROOM } from '../Constants.js'
 
 const client = createClient({ url: 'redis://localhost:6379' })
-const PUBIC = 'Public:', ROOM = 'Room:'
+const PUBLIC = 'Public:', ROOM = 'Room:'
 // generate roomId                      done
 // get public room                      done
 // get public rooms                     done
@@ -21,7 +21,7 @@ const setRedisRoom = async (roomId, room) => {
     }
     console.log('Saving to Redis with roomId:', roomId)
     const isPrivate = room.isPrivate
-    const id = isPrivate ? `${ROOM}${roomId}` : `${PUBIC}${ROOM}${roomId}`
+    const id = isPrivate ? `${ROOM}${roomId}` : `${PUBLIC}${ROOM}${roomId}`
     const res = await client.set(id, JSON.stringify(room))
     
     
@@ -33,7 +33,7 @@ const getRedisRoom = async (roomId) => {
         console.log('Missing room id while getting room')
         return
     }
-    let room = await client.get(`${PUBIC}${ROOM}${roomId}`)
+    let room = await client.get(`${PUBLIC}${ROOM}${roomId}`)
     if(room === null) room = await client.get(`${ROOM}${roomId}`)
     console.log('While getting room from redis')
     console.log(JSON.parse(room));
@@ -46,7 +46,7 @@ const createNewRoom = async (roomId, isPrivate, creatorId) => {
         console.log('Missing room id while creating default room')
         return
     }
-    // isPrivate ? `${ROOM}${roomId}` : `${PUBIC}${ROOM}${roomId}`
+    // isPrivate ? `${ROOM}${roomId}` : `${PUBLIC}${ROOM}${roomId}`
     const room = {
         ...DEFAULT_ROOM,
         creator: creatorId,
@@ -64,7 +64,6 @@ const createNewRoom = async (roomId, isPrivate, creatorId) => {
     return room
 }
 
-
 const getPublicRoom = async () => {
     const rooms = await getPublicRooms()
     if (rooms.length === 0) {
@@ -81,7 +80,7 @@ const getPublicRooms = async () => {
     let roomKeys = await client.keys('Public:Room:*')
     const rooms = []
     for (const roomId of roomKeys) {
-        const room = await getRedisRoom(roomId.replace(`${PUBIC}${ROOM}`, ''))
+        const room = await getRedisRoom(roomId.replace(`${PUBLIC}${ROOM}`, ''))
         if (room.players.length < room.settings.players) {
             rooms.push(roomId)
         }
@@ -90,17 +89,15 @@ const getPublicRooms = async () => {
 }
 
 const getRoomFromSocket = async (socketId) => {
-    console.log(socketId);
-
     const privateKeys = await client.keys(`${ROOM}*`)
-    const publicKeys = await client.keys(`${PUBIC}${ROOM}*`)
+    const publicKeys = await client.keys(`${PUBLIC}${ROOM}*`)
     for (let key of privateKeys) {
         const room = await getRedisRoom(key.replace(`${ROOM}`, ''))
         const found = room?.players?.find(({ id }) => id === socketId)
         if (found) return room
     }
     for (let key of publicKeys) {
-        const room = await getRedisRoom(key.replace(`${PUBIC}${ROOM}`, ''))
+        const room = await getRedisRoom(key.replace(`${PUBLIC}${ROOM}`, ''))
         const found = room?.players?.find(({ id }) => id === socketId)
         if (found) return room
     }

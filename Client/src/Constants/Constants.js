@@ -5,7 +5,7 @@ export const ServerEvent = {
     ERROR: 'error',
     RESPONSE: 'response',
     JOINED: 'joined',
-    LEFT:'player-left'
+    LEFT: 'player-left'
 }
 
 
@@ -16,7 +16,8 @@ export const ServerEvent = {
 
 export const ClientEvent = {
     JOIN_GAME: "join-game",
-    GET_ROOM: 'get-room'
+    GET_ROOM: 'get-room',
+    SETTINGS_UPDATE:'settings-update'
 }
 
 

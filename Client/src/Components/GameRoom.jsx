@@ -2,8 +2,14 @@
 import React, { useState } from 'react'
 import { useRoom } from '../Context/roomContext'
 import { socket } from '../socket'
+import Settings from './Settings'
+
+
 function GameRoom() {
-  const { room, roomId, handlePlayerJoin, customRoom, creator } = useRoom()
+  const { room, roomId } = useRoom()
+  const roomState = room?.gameState?.roomState
+  console.log('The room state is found ot be:' , roomState);
+  
   // console.log(room.players)
   return (
     <div className='w-full h-screen flex gap-4 p-4'>
@@ -26,6 +32,7 @@ function GameRoom() {
 
       {/* Drawing board - center */}
       <div id="drawing-board" className='flex-1 bg-white rounded-lg'>
+        <Settings />
         {/* Canvas goes here */}
       </div>
 

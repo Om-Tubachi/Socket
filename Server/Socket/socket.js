@@ -4,15 +4,16 @@ import {
     getRoomFromSocket,
     setRedisRoom
 } from "../Utils/redis.js"
-import { asyncHandler } from "../Utils/asyncHandler.js"
+import { socketHandler } from "../Utils/socketHandler.js";
 import {
     handlePlayerJoin,
     handleNewPlayer,
-    handleDisconnect
+    handleDisconnect,
+    handleSettingsChange
 } from '../Game/roomController.js'
 
 
-export const setupSocket = asyncHandler(
+export const setupSocket = socketHandler(
     async (io) => {
         io.on('connect', async (socket) => {
             console.log('User connected, ', socket.id)
@@ -29,7 +30,9 @@ export const setupSocket = asyncHandler(
                 // ack(true)
             })
 
-
+            socket.on(ClientEvent.SETTINGS_UPDATE, async({roomId, newSettings}) => {
+                await handleSettingsChange(roomId, newSettings, io);
+            })
 
         })
     }

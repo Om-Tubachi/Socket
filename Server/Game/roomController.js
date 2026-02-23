@@ -1,6 +1,6 @@
 import client from "../Utils/redis.js";
-import { asyncHandler } from "../Utils/asyncHandler.js";
-import { RoomState } from "../Constants.js";
+import { socketHandler } from "../Utils/socketHandler.js";
+import { ClientEvent, RoomState } from "../Constants.js";
 import { ServerEvent } from "../Constants.js";
 import {
     createNewRoom,
@@ -12,10 +12,7 @@ import {
 } from '../Utils/redis.js'
 
 
-
-
-
-export const handlePlayerJoin = asyncHandler(
+export const handlePlayerJoin = socketHandler(
     async (roomId, player, socket, io) => {
 
         try {
@@ -32,10 +29,7 @@ export const handlePlayerJoin = asyncHandler(
             players.push(player)
             room.players = players
             await setRedisRoom(roomId, room, socket)
-            console.log(roomId + " Hanfled?");
-            console.log('in controller:');
             const updated = await getRedisRoom(roomId)
-            console.log(updated);
 
             console.log('Emitting event:', ServerEvent.JOINED)
             socket.join(roomId)
@@ -56,7 +50,7 @@ export const handlePlayerJoin = asyncHandler(
     }
 )
 
-export const handleNewPlayer = asyncHandler(
+export const handleNewPlayer = socketHandler(
     async (roomId, player, socket) => {
         // if (!player)
         //     throw new CustomResponse(409, {}, "Player info is missing")
@@ -83,38 +77,61 @@ export const handleNewPlayer = asyncHandler(
     }
 )
 
-export const handleDisconnect = async (socket, io) => {
-    // MANY DIFFERENT CASES WILL COME HERE, WHERE THE PNE WHO DISCONNECTED COUD BE HOST,
-    // CURRENT PLAYER OR A PARTICIPANT
+export const handleDisconnect = socketHandler(
+    async (socket, io) => {
+        // MANY DIFFERENT CASES WILL COME HERE, WHERE THE PNE WHO DISCONNECTED COUD BE HOST,
+        // CURRENT PLAYER OR A PARTICIPANT
 
-    let room = await getRoomFromSocket(socket.id)
-    if (room === null) {
-        socket.emit(ServerEvent.ERROR, {
-            message: 'No such room found, invalid room id'
-        })
-        console.log('Player was not dfound in any rooms');
+        let room = await getRoomFromSocket(socket.id)
+        if (room === null) {
+            socket.emit(ServerEvent.ERROR, {
+                message: 'No such room found, invalid room id'
+            })
+            console.log('Player was not dfound in any rooms');
 
-        return
-    }
-    const playerLeft = room?.players?.find(({ id }) => id === socket.id)
-    room.players = room?.players.filter(({ id }) => id !== socket.id)
-
-    // Host left:
-    if (playerLeft === room.creator) {
-        // if(room.players.length === 0) {
-        //     // end game
-        // }
-        if (room.players.length > 0) {
-            // Transfer host to first remaining player
-            room.creator = room.players[0].id
-            console.log(`Host left. New host: ${room.players[0].username}`)
+            return
         }
-    }
+        const playerLeft = room?.players?.find(({ id }) => id === socket.id)
+        room.players = room?.players.filter(({ id }) => id !== socket.id)
+        
+        // Host left:
+        if (playerLeft?.id === room.creator) {           
+            if (room.players.length > 0) {
+                // Transfer host to first remaining player
+                room.creator = room.players[0].id
+                console.log(`Host left. New host: ${room.players[0].username}`)
+            }
+        }
 
-    await setRedisRoom(room.roomId, room)
-    io.to(room.roomId).emit(ServerEvent.LEFT, {
-        message: 'player left',
-        playerLeft,
-        newHost: playerLeft.id === room.creator ? room.players[0] : null
-    })
-}
+        await setRedisRoom(room.roomId, room)
+        
+        io.to(room.roomId).emit(ServerEvent.LEFT, {
+            message: 'player left',
+            playerLeft,
+            newHost: playerLeft.id === room.creator ? room.players[0] : null
+        })
+    }
+)
+
+export const handleSettingsChange = socketHandler(
+    async (roomId, newSettings, io) => {
+        let room = await getRedisRoom(roomId)
+        if(!room) {
+            socket.emit(ServerEvent.ERROR, {
+                message:'Failed to fetch room for diven room id, settings not updated'
+            })
+            return
+        }
+
+        room = {
+            ...room,
+            settings:newSettings
+        }
+
+        await setRedisRoom(roomId, room)
+
+        io.to(roomId).emit(ClientEvent.SETTINGS_UPDATE, {
+            room
+        })
+    }
+)

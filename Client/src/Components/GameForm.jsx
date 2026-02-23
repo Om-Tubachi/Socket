@@ -1,5 +1,3 @@
-/* eslint-disable no-unused-vars */
-/* eslint-disable no-undef */
 import React, { useState } from 'react'
 import { socket } from '../socket'
 import { useRoom } from '../Context/roomContext'
@@ -63,7 +61,7 @@ function GameForm() {
         </form>
         <button
             className='w-full bg-green-600 hover:bg-green-500 px-4 py-2 rounded font-semibold'
-            onClick={(e) => handlePlayerJoin(null, {id:socket.id, username})}
+            onClick={() => handlePlayerJoin(null, {id:socket.id, username})}
             >
             Random
           </button>
