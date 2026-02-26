@@ -9,8 +9,11 @@ const RoomContext = createContext()
 export const RoomProvider = ({ children }) => {
     const [room, setRoom] = useState(DEFAULT_ROOM)
     const [roomId, setRoomId] = useState('')
+    const [words, setWords] = useState([])
+    const [currPlayer, setCurrPlayer] = useState({})
     useEffect(() => {
         console.log(room)
+        console.log(currPlayer?.username);
         socket.on(ServerEvent.JOINED, ({ room: receivedRoom, data }) => {
             if (!receivedRoom) return
             setRoomId(receivedRoom.roomId)
@@ -18,6 +21,9 @@ export const RoomProvider = ({ children }) => {
         })
 
         socket.on(ServerEvent.ERROR, ({ message }) => {
+            alert(message)
+        })
+        socket.on(ServerEvent.RESPONSE, ({ message }) => {
             alert(message)
         })
 
@@ -47,11 +53,33 @@ export const RoomProvider = ({ children }) => {
             else setRoom(receivedRoom)
         })
 
+        socket.on(ServerEvent.CHOSE_WORD, ({ currPlayer,words, message, room: receivedRoom }) => {
+            setRoom(receivedRoom)
+            setCurrPlayer(currPlayer)
+            setWords(words)
+        })
+
+        socket.on(ServerEvent.CHOSING_WORD, ({ currPlayer, message, room: receivedRoom }) => {
+            console.log(currPlayer);
+            setRoom(receivedRoom)
+            setCurrPlayer(currPlayer)
+
+        })
+
+        socket.on(ServerEvent.GAME_STARTED, ({ room: receivedRoom }) => {
+            console.log(receivedRoom);
+            setRoom(receivedRoom)
+
+        })
+
         return () => {
             socket.off(ServerEvent.JOINED)
             socket.off(ServerEvent.ERROR)
             socket.off(ServerEvent.LEFT)
             socket.off(ClientEvent.SETTINGS_UPDATE)
+            socket.off(ServerEvent.CHOSE_WORD)
+            socket.off(ServerEvent.CHOSING_WORD)
+            socket.off(ServerEvent.GAME_STARTED)
         }
     }, [])
 
@@ -79,15 +107,35 @@ export const RoomProvider = ({ children }) => {
         const roomId = generateRoomId()
         return handlePlayerJoin(roomId, player)
     }
-console.log(room);
 
+    const setWord = async (chosenWord) => {
+        if (!chosenWord) {
+            alert('Did not recieve chosen word')
+            return
+        }
+        if (chosenWord === "" && words.length > 0) chosenWord = words[0]
+        socket.emit(ServerEvent.CHOSE_WORD, {
+            chosenWord,
+            roomId
+        })
+    }
+
+    const start = () => {
+        console.log('Start clicked, sending event');
+
+        socket.emit(ClientEvent.START_GAME, { roomId })
+    }
     return (
         <RoomContext.Provider value={{
             room,
             roomId,
+            words,
+            currPlayer,
             handlePlayerJoin,
             customRoom,
-            handleSettingsChange
+            handleSettingsChange,
+            setWord,
+            start
         }}>
             {children}
         </RoomContext.Provider>

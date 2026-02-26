@@ -31,7 +31,7 @@ const setRedisRoom = async (roomId, room) => {
 const getRedisRoom = async (roomId) => {
     if (!roomId) {
         console.log('Missing room id while getting room')
-        return
+        return 
     }
     let room = await client.get(`${PUBLIC}${ROOM}${roomId}`)
     if(room === null) room = await client.get(`${ROOM}${roomId}`)

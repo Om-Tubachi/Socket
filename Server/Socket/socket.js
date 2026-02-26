@@ -9,7 +9,8 @@ import {
     handlePlayerJoin,
     handleNewPlayer,
     handleDisconnect,
-    handleSettingsChange
+    handleSettingsChange,
+    startGame
 } from '../Game/roomController.js'
 
 
@@ -30,8 +31,16 @@ export const setupSocket = socketHandler(
                 // ack(true)
             })
 
-            socket.on(ClientEvent.SETTINGS_UPDATE, async({roomId, newSettings}) => {
+            socket.on(ClientEvent.SETTINGS_UPDATE, async ({ roomId, newSettings }) => {
                 await handleSettingsChange(roomId, newSettings, io);
+            })
+
+            socket.on(ClientEvent.START_GAME, async ({roomId}) => {
+                return await startGame(roomId, socket, io)
+            })
+
+            socket.on(ServerEvent.CHOSE_WORD, async ({ chosenWord }) => {
+                return await setWord(chosenWord, roomId, socket)
             })
 
         })

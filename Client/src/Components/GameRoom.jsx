@@ -3,13 +3,14 @@ import React, { useState } from 'react'
 import { useRoom } from '../Context/roomContext'
 import { socket } from '../socket'
 import Settings from './Settings'
+import ChoseChosing from './ChoseChosing'
 
 
 function GameRoom() {
-  const { room, roomId } = useRoom()
+  const { room, roomId, start } = useRoom()
   const roomState = room?.gameState?.roomState
-  console.log('The room state is found ot be:' , roomState);
-  
+  console.log('The room state is found ot be:', roomState);
+
   // console.log(room.players)
   return (
     <div className='w-full h-screen flex gap-4 p-4'>
@@ -33,6 +34,13 @@ function GameRoom() {
       {/* Drawing board - center */}
       <div id="drawing-board" className='flex-1 bg-white rounded-lg'>
         <Settings />
+        {roomState === 'lobby' && (<div>
+          <button
+          className='px-3 py-2 mx-2 my-1 bg-green-300 hover:cursor-pointer'
+            disabled={socket.id !== room.creator}
+            onClick={() => start()}>Start</button>
+        </div>)}
+        <ChoseChosing />
         {/* Canvas goes here */}
       </div>
 

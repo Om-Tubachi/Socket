@@ -3,11 +3,20 @@
  * @constant ServerEvent
  * @description Server sent events
  */
+export const MAX_POINTS = 200
+
 export const ServerEvent = {
     ERROR: 'error',
     RESPONSE: 'response',
     JOINED: 'joined',
-    LEFT: 'player-left'
+    LEFT: 'player-left',
+    CHOSE_WORD: 'chose-word',
+    CHOSING_WORD: 'chosing-word',
+    DRAW: 'draw',
+    INCORRECT_GUESS: 'incorrect-guess',
+    CORRECT_GUESS: 'cirrect-guess',
+    GAME_END: 'game-end',
+    GAME_STARTED:'game-started'
 }
 
 
@@ -15,14 +24,18 @@ export const ServerEvent = {
  * @description Client sent events
  * 
  */
-
 export const ClientEvent = {
     JOIN_GAME: "join-game",
     GET_ROOM: 'get-room',
     SETTINGS_UPDATE: 'settings-update',
-    DISCONNECT:'disconnect'
+    DISCONNECT: 'disconnect',
+    START_GAME: 'start-game'
 }
 
+export const END_REASON = {
+    VALID_END: 'valid-end',
+    SERVER_FAILURE: 'server-failure',
+}
 
 /**
  * @description DEFAULTS
@@ -30,7 +43,6 @@ export const ClientEvent = {
  */
 export const RoomState = {
     LOBBY: 'lobby',
-    GAME_STARTED: 'game-started',
     IN_PROGRESS: 'in-progress',
     GAME_END: 'game-end'
 }

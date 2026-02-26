@@ -41,6 +41,8 @@ function SettingsForm() {
                         disabled={!isHost}
                         className='w-full bg-slate-700 text-white px-3 py-2 rounded disabled:opacity-50'
                     >
+                        <option value={15}>15s</option>
+
                         <option value={30}>30s</option>
                         <option value={60}>60s</option>
                         <option value={90}>90s</option>
