@@ -16,7 +16,8 @@ export const ServerEvent = {
     INCORRECT_GUESS: 'incorrect-guess',
     CORRECT_GUESS: 'cirrect-guess',
     GAME_END: 'game-end',
-    GAME_STARTED:'game-started'
+    GAME_STARTED: 'game-started',
+    WORD_CHOSEN: 'word-chosen'
 }
 
 
@@ -28,8 +29,9 @@ export const ClientEvent = {
     JOIN_GAME: "join-game",
     GET_ROOM: 'get-room',
     SETTINGS_UPDATE: 'settings-update',
-    DISCONNECT: 'disconnect',
-    START_GAME: 'start-game'
+    START_GAME: 'start-game',
+    SEND_MESSAGE: 'message',
+    DISCONNECT: 'disconnect'
 }
 
 export const END_REASON = {

@@ -4,6 +4,7 @@ import { useRoom } from '../Context/roomContext'
 import { socket } from '../socket'
 import Settings from './Settings'
 import ChoseChosing from './ChoseChosing'
+import Chat from './Chat'
 
 
 function GameRoom() {
@@ -14,7 +15,7 @@ function GameRoom() {
   // console.log(room.players)
   return (
     <div className='w-full h-screen flex gap-4 p-4'>
-      {/* Players sidebar - left */}
+      {/* Players sidebar */}
       <div id="players" className='w-1/4 bg-slate-800 rounded-lg p-4 overflow-y-auto'>
         <h2 className='text-xl font-bold text-white mb-4'>Players ({room.players.length})</h2>
         {room.players.length > 0 ? (
@@ -31,7 +32,7 @@ function GameRoom() {
         )}
       </div>
 
-      {/* Drawing board - center */}
+      {/* Drawing board */}
       <div id="drawing-board" className='flex-1 bg-white rounded-lg'>
         <Settings />
         {roomState === 'lobby' && (<div>
@@ -44,17 +45,9 @@ function GameRoom() {
         {/* Canvas goes here */}
       </div>
 
-      {/* Chat - right */}
+      {/* Chat */}
       <div id="chat" className='w-1/4 bg-slate-800 rounded-lg p-4 flex flex-col'>
-        <h2 className='text-xl font-bold text-white mb-4'>Chat</h2>
-        <div className='flex-1 overflow-y-auto'>
-          {/* Messages go here */}
-        </div>
-        <input
-          type="text"
-          placeholder="Type a guess..."
-          className='mt-4 px-4 py-2 rounded bg-slate-700 text-white'
-        />
+        <Chat />
       </div>
     </div>
 

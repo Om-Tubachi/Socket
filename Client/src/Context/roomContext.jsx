@@ -11,6 +11,7 @@ export const RoomProvider = ({ children }) => {
     const [roomId, setRoomId] = useState('')
     const [words, setWords] = useState([])
     const [currPlayer, setCurrPlayer] = useState({})
+    const [chosen, setChosen] = useState(false)
     useEffect(() => {
         console.log(room)
         console.log(currPlayer?.username);
@@ -57,12 +58,14 @@ export const RoomProvider = ({ children }) => {
             setRoom(receivedRoom)
             setCurrPlayer(currPlayer)
             setWords(words)
+            setChosen(false)
         })
 
         socket.on(ServerEvent.CHOSING_WORD, ({ currPlayer, message, room: receivedRoom }) => {
             console.log(currPlayer);
             setRoom(receivedRoom)
             setCurrPlayer(currPlayer)
+            setChosen(false)
 
         })
 
@@ -72,6 +75,8 @@ export const RoomProvider = ({ children }) => {
 
         })
 
+        socket.on(ServerEvent.WORD_CHOSEN,() => setChosen(true))
+
         return () => {
             socket.off(ServerEvent.JOINED)
             socket.off(ServerEvent.ERROR)
@@ -80,6 +85,7 @@ export const RoomProvider = ({ children }) => {
             socket.off(ServerEvent.CHOSE_WORD)
             socket.off(ServerEvent.CHOSING_WORD)
             socket.off(ServerEvent.GAME_STARTED)
+            socket.off(ServerEvent.WORD_CHOSEN)
         }
     }, [])
 
@@ -109,11 +115,7 @@ export const RoomProvider = ({ children }) => {
     }
 
     const setWord = async (chosenWord) => {
-        if (!chosenWord) {
-            alert('Did not recieve chosen word')
-            return
-        }
-        if (chosenWord === "" && words.length > 0) chosenWord = words[0]
+        if (!chosenWord && words.length > 0) chosenWord = words[0]
         socket.emit(ServerEvent.CHOSE_WORD, {
             chosenWord,
             roomId
@@ -131,6 +133,7 @@ export const RoomProvider = ({ children }) => {
             roomId,
             words,
             currPlayer,
+            chosen,
             handlePlayerJoin,
             customRoom,
             handleSettingsChange,

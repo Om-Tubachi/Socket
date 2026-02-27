@@ -174,10 +174,7 @@ export const startGame = socketHandler(
         await setRedisRoom(roomId, room)
 
         io.to(roomId).emit(ServerEvent.GAME_STARTED, {room})
-        console.log('in start');
-        console.log(room);
         
-        console.log(roomId);
         await nextTurn(roomId, socket, io)
     }
 )
@@ -280,6 +277,8 @@ export const handleTexts = socketHandler(
         // save to redis, emit to room "player.username guessed cirrect"
         // then again emit the updated players arr so that it is constantly changing on frontend
 
+        console.log(data);
+        
         const { message } = data
         if (!message) {
             socket.emit(ServerEvent.ERROR, {
@@ -359,7 +358,7 @@ export const awardPoints = socketHandler(
     }
 )
 
-export const setWord = async (chosenWord, roomId, socket) => {
+export const setWord = async (chosenWord, roomId, socket,io) => {
     const room = await getRedisRoom(roomId)
 
     if (!room) {
@@ -371,10 +370,11 @@ export const setWord = async (chosenWord, roomId, socket) => {
     }
 
     room.gameState.word = chosenWord
-    return await setRedisRoom(roomId, room)
-
+    console.log(`word set to ${chosenWord}`);
+    
+    await setRedisRoom(roomId, room)
+    io.to(roomId).emit(ServerEvent.WORD_CHOSEN)
 }
-
 
 const setTimers = async (roomId, socket, io) => {
     if (timers.has(roomId)) {
