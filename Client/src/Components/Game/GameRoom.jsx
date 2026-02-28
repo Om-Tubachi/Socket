@@ -1,10 +1,11 @@
 /* eslint-disable no-unused-vars */
 import React, { useState } from 'react'
-import { useRoom } from '../Context/roomContext'
-import { socket } from '../socket'
+import { useRoom } from '../../Context/roomContext'
+import { socket } from '../../socket'
 import Settings from './Settings'
-import ChoseChosing from './ChoseChosing'
-import Chat from './Chat'
+import ChoseChosing from '../ChoseChosing'
+import Chat from '../Chat'
+import Canvas from '../Canvas'
 
 
 function GameRoom() {
@@ -42,6 +43,7 @@ function GameRoom() {
             onClick={() => start()}>Start</button>
         </div>)}
         <ChoseChosing />
+        <Canvas />
         {/* Canvas goes here */}
       </div>
 

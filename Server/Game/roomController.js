@@ -11,7 +11,7 @@ import {
 } from '../Utils/redis.js'
 import { getWords } from "../Words/word.js";
 
-
+const MAX_PTS = 200
 const timers = new Map()
 
 export const handlePlayerJoin = socketHandler(
@@ -173,21 +173,26 @@ export const startGame = socketHandler(
         room.gameState.roomState = RoomState.IN_PROGRESS
         await setRedisRoom(roomId, room)
 
-        io.to(roomId).emit(ServerEvent.GAME_STARTED, {room})
-        
+        io.to(roomId).emit(ServerEvent.GAME_STARTED, { room })
+
         await nextTurn(roomId, socket, io)
     }
 )
 
 export const nextTurn = async (roomId, socket, io) => {
     await clearTimers(roomId)
+    
     const t = new Date()
     console.log('timer has been set at in next Turn' + t.toLocaleTimeString());
+
     const room = await getRedisRoom(roomId)
     const words = await getWords(room?.settings)
     const currId = room?.players[room?.gameState?.currentPlayer]?.id
     const currPlayer = room?.players?.find(({ id }) => id === currId)
 
+    room.gameState.guessedWords = []
+    // room.gameState.word = ''
+    room.gameState.drawingData = []
     if (!currPlayer) {
         console.log('failed to assign a turn');
         return
@@ -233,37 +238,90 @@ export const nextTurn = async (roomId, socket, io) => {
 
 
     await setRedisRoom(roomId, room)
-    return await setTimers(roomId, socket, io)
+    return await setTimers(roomId, currPlayer, socket, io)
 }
 
 // needs thinking
 export const handleDraw = socketHandler(
-    async (drgData, roomId, socket, io) => {
-        if (!drgData) {
-            io.to(roomId).emit(ServerEvent.ERROR,
-                {
-                    message: 'Did not recieving drawing data'
-                }
-            )
-            return
-        }
+    async (drawingData, currPlayer, roomId, socket, io) => {
+        // we will be getting final data from client, 
+        // save it to room
+        // emit back to room except the curr player
+        if (!drawingData) return
 
         const room = await getRedisRoom(roomId)
         if (!room) {
-            console.log('Failed to fetch room in handleDraw');
+            socket.emit(ServerEvent.ERROR, {
+                message: `Failed to get room from redis, in draw`
+            })
             return
         }
-        const currPlayerId = room?.players[room?.gameState?.currentPlayer]?.id
-        room.gameState.drawingData = drgData.data
 
+        room.gameState.drawingData = drawingData
         await setRedisRoom(roomId, room)
 
-        io.to(roomId).except(currPlayerId).emit(ServerEvent.DRAW,
-            {
-                drgData: drgData.data
-            }
-        )
+        io.to(roomId).except(currPlayer?.id).emit(ServerEvent.DRAW, {
+            drawingData
+        })
 
+    }
+)
+
+export const handleUndo = socketHandler(
+    async (roomId, drawingData, socket, io) => {
+        if (!drawingData) return
+        const room = await getRedisRoom(roomId)
+        if (!room) {
+            socket.emit(ServerEvent.ERROR, {
+                message: `Failed to get room from redis, undo`
+            })
+            return
+        }
+
+        room.gameState.drawingData = drawingData
+        await setRedisRoom(roomId, room)
+        io.to(roomId).emit(ServerEvent.UNDO, {
+            drawingData
+        })
+    }
+)
+
+export const handleRedo = socketHandler(
+    async (roomId, drawingData, socket, io) => {
+        if (!drawingData) return
+
+        const room = await getRedisRoom(roomId)
+        if (!room) {
+            socket.emit(ServerEvent.ERROR, {
+                message: `Failed to get room from redis, redo`
+            })
+            return
+        }
+
+        room.gameState.drawingData = drawingData
+        await setRedisRoom(roomId, room)
+        io.to(roomId).emit(ServerEvent.REDO, {
+            drawingData
+        })
+    }
+)
+
+export const handleClear = socketHandler(
+    async (roomId, socket, io) => {
+
+        const room = await getRedisRoom(roomId)
+        if (!room) {
+            socket.emit(ServerEvent.ERROR, {
+                message: `Failed to get room from redis, redo`
+            })
+            return
+        }
+
+        room.gameState.drgData = []
+        await setRedisRoom(roomId, room)
+        io.to(roomId).emit(ServerEvent.CLEAR, {
+            message: 'cleared the canvas'
+        })
     }
 )
 
@@ -278,8 +336,8 @@ export const handleTexts = socketHandler(
         // then again emit the updated players arr so that it is constantly changing on frontend
 
         console.log(data);
-        
-        const { message } = data
+
+        const { message, time } = data
         if (!message) {
             socket.emit(ServerEvent.ERROR, {
                 message: `Failed to recieve message on server`
@@ -299,7 +357,7 @@ export const handleTexts = socketHandler(
         const player = room?.players?.find(({ id }) => id === socket?.id)
 
         if (guess.toLowerCase() === currWord.toLowerCase()) {
-            return await handleGuess(roomId, socket, io, player)
+            return await handleGuess(roomId, socket, io, player, time)
         }
         io.to(roomId).emit(ServerEvent.INCORRECT_GUESS, {
             from: player,
@@ -311,54 +369,125 @@ export const handleTexts = socketHandler(
 )
 
 export const handleGuess = socketHandler(
-    async (roomId, socket, io, player) => {
+    async (roomId, socket, io, player, timeGuessedAt) => {
         // we know the guess is correct, simply award points, update room, emit changes
-        await awardPoints(roomId, player)
-        const room = await getRedisRoom(roomId)
-        if (!room) {
-            socket.emit(ServerEvent.ERROR, {
-                message: `Failed to get room from redis, (in handleGuess)`
-            })
-            return
-        }
-        const players = room?.players, upDatedPlayer = room?.players?.find(({ id }) => id === player?.id)
-
-        io.to(roomId).emit(ServerEvent.CORRECT_GUESS, {
-            upDatedPlayer,
-            response: `${player} guessed CORRECT`,
-            message: `${player} guessed the word`,
-            updatedPlayersArr: players
-        })
+        await awardPoints(roomId, player, timeGuessedAt, socket, io)
 
     }
 )
 
 // needs thinking
 export const awardPoints = socketHandler(
-    async (roomId, player) => {
+    async (roomId, player, timeGuessedAt, socket, io) => {
+        // max pts 200
+        // input: timeGuessedAt: , player
+        // we have: timeStartedAt
+        // store all guesses structured as: { playerId: , timeGuessedAt: , points: }
+        // formula: points = lastPoints - ((((timeGuessesAt - timeStartedAt)*5*20)/turnTime ) + (numOfGuesses*5))
         const room = await getRedisRoom(roomId)
+
         if (!room) {
             socket.emit(ServerEvent.ERROR, {
-                message: `Failed to get room from redis, (in awardPoints)`
+                message: `Failed to get room from redis`
             })
             return
         }
+        const players = room.players
+        const guesses = room?.gameState?.guessedWords, lastPoints = guesses.length === 0 ? MAX_POINTS : guesses[guesses.length - 1].points
+        const timeTurnStarted = room?.gameState?.timerStartedAt, numOfGuesses = guesses.length
+        const constantDeduction = timeTurnStarted / 5, guessDeduction = numOfGuesses * 5;
+        const points = lastPoints - ((((timeGuessedAt - timeTurnStarted) / constantDeduction) * 20) + numOfGuesses * 5)
+        const newGuess = {
+            playerId: player?.id || "",
+            points,
+            timeGuessedAt
+        }
+        guesses.push(newGuess)
+        room.gameState.guessedWords = guesses
+        for (let pl of players) {
+            if (pl?.id === player?.id) {
+                pl.points += points
+                break
+            }
+        }
+        room.players = players
+        await setRedisRoom(roomId, room)
 
-        // two cases: 1: the player is currentPlayer
-        // 2: player is not current and has guessed right
+        io.to(roomId).emit(
+            ServerEvent.CORRECT_GUESS,
+            {
+                to: player,
+                incrementedPoints: points,
+                updatedPlayers: players,
+                response: `${player} guessed CORRECT`,
+            }
+        )
 
-        const currPlayer = room.players[room?.gameState?.currentPlayer]
-        if (player.id === currPlayer.id) {
+        const nonDrawers = room.players.filter(p => p.id !== currPlayer.id)
+        const allGuessed = guesses.length === nonDrawers.length
 
+        if (allGuessed) {
+            await clearTimers(roomId)
+            await pointsToCurrPlayer(roomId, currPlayer, socket, io)
+            await nextTurn(roomId, socket, io)
         }
 
-        // points for normal player who guessed right:
-        const guessed = room.gameState.guessedWords
+
 
     }
 )
 
-export const setWord = async (chosenWord, roomId, socket,io) => {
+export const pointsToCurrPlayer = socketHandler(
+    async (roomId, currPlayer, socket, io) => {
+        const room = await getRedisRoom(roomId)
+
+        if (!room) {
+            socket.emit(ServerEvent.ERROR, {
+                message: `Failed to get room from redis`
+            })
+            return
+        }
+
+        const guesses = room?.gameState?.guessedWords, numOfPlayersGuessed = guesses.length, totalDelta = 0, timeTurnStarted = room?.gameState?.timerStartedAt
+        const players = room?.players
+
+        for (let i = 0; i < numOfPlayersGuessed; i++) {
+            const guess = guesses[i]
+            if (i == 0) {
+                totalDelta += guess.timeGuessedAt - timeTurnStarted
+            }
+            else {
+                totalDelta += guess?.timeGuessedAt - guesses[i - 1].timeGuessedAt
+            }
+        }
+
+        const points = numOfPlayersGuessed * 10 - totalDelta / 2;       // 10+ for every correct
+        for (let player in players) {
+            if (player?.id === currPlayer?.id) {
+                player?.id += points
+                break
+            }
+        }
+        room.players = players
+        await setRedisRoom(roomId, room)
+        io.to(roomId).emit(ServerEvent.POINTS_AWARDED, {
+            to: currPlayer,
+            incrementedPoints: points,
+            updatedPlayers: players
+        })
+
+        // this points will be awarded at the end of a round, when everyones turn will be over, so send an updated room as well
+        const updatedRoom = await getRedisRoom(roomId)
+        io.to(roomId).emit(
+            ServerEvent.UPDATE,
+            {
+                room: updatedRoom
+            }
+        )
+    }
+)
+
+export const setWord = async (chosenWord, roomId, socket, io) => {
     const room = await getRedisRoom(roomId)
 
     if (!room) {
@@ -370,13 +499,14 @@ export const setWord = async (chosenWord, roomId, socket,io) => {
     }
 
     room.gameState.word = chosenWord
+    room.gameState.timerStartedAt = Date.now()
     console.log(`word set to ${chosenWord}`);
-    
+
     await setRedisRoom(roomId, room)
     io.to(roomId).emit(ServerEvent.WORD_CHOSEN)
 }
 
-const setTimers = async (roomId, socket, io) => {
+const setTimers = async (roomId, currPlayer, socket, io) => {
     if (timers.has(roomId)) {
         clearTimers(roomId)
         return
@@ -387,7 +517,12 @@ const setTimers = async (roomId, socket, io) => {
         return
     }
     const time = room.settings?.drawTime
-    const timeoutId = setTimeout(() => nextTurn(roomId, socket, io), time * 1000);
+
+    const timeoutId = setTimeout(async () => {
+        await pointsToCurrPlayer(roomId, currPlayer, socket, io)
+        await nextTurn(roomId, socket, io)
+    }, time * 1000);
+
     timers.set(roomId, timeoutId)
     const t = new Date()
     console.log('timer has been set at' + t.toLocaleTimeString());

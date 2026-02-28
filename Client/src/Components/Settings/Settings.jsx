@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 import React, { useState } from 'react'
-import { useRoom } from '../Context/roomContext'
-import { socket } from '../socket'
+import { useRoom } from '../../Context/roomContext'
+import { socket } from '../../socket'
 import SettingsForm from './SettingsForm'
 
 function Settings() {

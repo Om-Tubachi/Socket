@@ -12,7 +12,12 @@ import {
     handleSettingsChange,
     startGame,
     setWord,
-    handleTexts
+    handleTexts,
+    handleClear,
+    handleDraw,
+    handleRedo,
+    handleUndo
+
 } from '../Game/roomController.js'
 
 
@@ -42,13 +47,29 @@ export const setupSocket = socketHandler(
             })
 
             socket.on(ServerEvent.CHOSE_WORD, async ({ chosenWord, roomId }) => {
-                await setWord(chosenWord, roomId, socket,io)
+                await setWord(chosenWord, roomId, socket, io)
             })
 
-            socket.on(ClientEvent.SEND_MESSAGE, async ({data,roomId }) => {
+            socket.on(ClientEvent.SEND_MESSAGE, async ({ data, roomId }) => {
                 return await handleTexts(roomId, socket, io, data)
             })
 
+            socket.on(ClientEvent.DRAW, async ({ drawingData, roomId, currPlayer }) => await handleDraw(drawingData, currPlayer, roomId, socket, io))
+
+            socket.on(ClientEvent.UNDO, async ({drawingData, roomId}) => {
+
+                console.log(roomId);
+
+                return await handleUndo(roomId, drawingData, socket, io)
+            })
+
+            socket.on(ClientEvent.REDO, async ({ drgData, roomId }) => {
+                return await handleRedo(roomId, drgData, socket, io)
+            })
+
+            socket.on(ClientEvent.CLEAR, async ({ roomId }) => {
+                return await handleClear(roomId, socket, io)
+            })
         })
     }
 )

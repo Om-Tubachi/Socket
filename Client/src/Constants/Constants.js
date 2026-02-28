@@ -13,7 +13,10 @@ export const ServerEvent = {
     CORRECT_GUESS:'cirrect-guess',
     GAME_END:'game-end',
     GAME_STARTED:'game-started',
-    WORD_CHOSEN:'word-chosen'
+    WORD_CHOSEN:'word-chosen',
+    UNDO:'undo',
+    REDO:'redo',
+    CLEAR:'clear'
 }
 
 
@@ -27,7 +30,11 @@ export const ClientEvent = {
     GET_ROOM: 'get-room',
     SETTINGS_UPDATE:'settings-update',
     START_GAME:'start-game',
-    SEND_MESSAGE:'message'
+    SEND_MESSAGE:'message',
+    DRAW:'draw',
+    UNDO:'undo',
+    REDO:'redo',
+    CLEAR:'clear'
 }
 
 

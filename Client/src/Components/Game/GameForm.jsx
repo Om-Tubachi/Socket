@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
-import { socket } from '../socket'
-import { useRoom } from '../Context/roomContext'
+import { socket } from '../../socket'
+import { useRoom } from '../../Context/roomContext'
 function GameForm() {
   const [username, setUsername] = useState('Daniel')
   const [userRoomId, setUserRoomId] = useState("")

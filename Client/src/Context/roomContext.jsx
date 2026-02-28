@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable no-unused-vars */
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { socket } from '../socket.js'
 import { ServerEvent, ClientEvent, DEFAULT_ROOM } from '../Constants/Constants.js'
 
@@ -12,6 +12,12 @@ export const RoomProvider = ({ children }) => {
     const [words, setWords] = useState([])
     const [currPlayer, setCurrPlayer] = useState({})
     const [chosen, setChosen] = useState(false)
+    const canvasRef = useRef(null)
+
+    let drawingData = []
+    let undoStk = []
+
+
     useEffect(() => {
         console.log(room)
         console.log(currPlayer?.username);
@@ -54,7 +60,7 @@ export const RoomProvider = ({ children }) => {
             else setRoom(receivedRoom)
         })
 
-        socket.on(ServerEvent.CHOSE_WORD, ({ currPlayer,words, message, room: receivedRoom }) => {
+        socket.on(ServerEvent.CHOSE_WORD, ({ currPlayer, words, message, room: receivedRoom }) => {
             setRoom(receivedRoom)
             setCurrPlayer(currPlayer)
             setWords(words)
@@ -75,7 +81,25 @@ export const RoomProvider = ({ children }) => {
 
         })
 
-        socket.on(ServerEvent.WORD_CHOSEN,() => setChosen(true))
+        socket.on(ServerEvent.WORD_CHOSEN, () => setChosen(true))
+
+        socket.on(ServerEvent.DRAW, ({ drawingData }) => draw(drawingData))
+
+        socket.on(ServerEvent.UNDO, ({ drawingData }) => {
+            console.log('got it from server');
+            draw(drawingData)
+            
+        })
+
+        socket.on(ServerEvent.REDO, ({ drawingData }) => draw(drawingData))
+
+        socket.on(ServerEvent.CLEAR, ({ message }) => {
+            const ctx = canvasRef.current?.getContext('2d')
+            ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
+            undoStk = []
+        })
+
+
 
         return () => {
             socket.off(ServerEvent.JOINED)
@@ -127,6 +151,67 @@ export const RoomProvider = ({ children }) => {
 
         socket.emit(ClientEvent.START_GAME, { roomId })
     }
+
+    const handleDraw = (stroke) => {
+        drawingData.push(stroke)
+        if (drawingData.length === 0) drawingData = []
+
+        socket.emit(ClientEvent.DRAW, {
+            drawingData,
+            roomId,
+            currPlayer
+        })
+    }
+
+    const handleUndo = () => {
+        if (drawingData.length === 0) return
+
+        undoStk.push(drawingData.pop())
+        console.log(roomId);
+        
+        socket.emit(ClientEvent.UNDO, {
+            drawingData,
+            roomId
+        })
+        // draw(drawingData)
+    }
+
+    const handleRedo = () => {
+        if (undoStk.length === 0) return
+
+        drawingData.push(undoStk.pop())
+        socket.emit(ClientEvent.REDO, {
+            drawingData,
+            roomId
+        })
+    }
+
+    const handleDelete = () => {
+        if (drawingData.length === 0) return
+        drawingData = []
+        socket.emit(ClientEvent.CLEAR, {
+            roomId
+        })
+    }
+
+    const draw = (data) => {
+        const ctx = canvasRef.current?.getContext('2d')
+        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
+
+        for (const stroke of data) {
+            ctx.beginPath()
+            ctx.strokeStyle = stroke.color
+            ctx.lineWidth = stroke.width
+            ctx.moveTo(stroke.points[0].x, stroke.points[0].y)
+
+            for (const point of stroke.points) {
+                ctx.lineTo(point.x, point.y)
+            }
+            ctx.stroke()
+        }
+    }
+
+
     return (
         <RoomContext.Provider value={{
             room,
@@ -134,11 +219,16 @@ export const RoomProvider = ({ children }) => {
             words,
             currPlayer,
             chosen,
+            canvasRef,
             handlePlayerJoin,
             customRoom,
             handleSettingsChange,
             setWord,
-            start
+            start,
+            handleDelete,
+            handleUndo,
+            handleRedo,
+            handleDraw
         }}>
             {children}
         </RoomContext.Provider>
